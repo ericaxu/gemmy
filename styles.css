@@ -6,3 +6,23 @@ available in the app when your plugin is enabled.
 If your plugin does not need CSS, delete this file.
 
 */
+
+:root {
+        --gemmy-size: 80px;
+}
+
+.gemmy-container {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+}
+
+.gemmy-container img {
+        width: var(--gemmy-size);
+        height: var(--gemmy-size);
+        border-radius: var(--gemmy-size);
+}
+
+.gemmy-tooltip {
+        font-size: var(--font-ui-medium);
+}

@@ -1,81 +1,223 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, debounce, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { NORMAL_BASE64, SPEAKING_BASE64 } from 'resources';
+import EMERGE_MOTION_BASE64 from './gemmy_emerge.gif';
 
 // Remember to rename these classes and interfaces!
 
-interface MyPluginSettings {
-	mySetting: string;
+interface GemmySettings {
+	show: boolean;
+	// in minutes
+	talkFrequency: number;
+	// the number of minutes you must write before Gemmy appears to mock you
+	writingModeDeadline: number;
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
-}
+const DEFAULT_SETTINGS: GemmySettings = {
+	show: true,
+	talkFrequency: 5,
+	writingModeDeadline: 0.1
+};
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+
+const GEMMY_IDLE_QUOTES = [
+	"Did you know that a vault is just a folder of plain text notes?",
+	"I see you're checking out a ChatGPT plugin, would you consider me instead?",
+	"You have plugins that you can update!",
+	"Hi I'm Gemmy! Like Clippy but shinier!",
+	"Everything is connected. Everything.",
+	`It looks like you’re writing a note.
+
+Would you like help?
+- Get help with writing the note
+- Just type the note without help
+- [ ] Don’t show me this tip again`,
+	'Can’t decide which note to work on? Try the Random Note core plugin!',
+	'Are you sure you don’t want to upload all your notes so you can talk',
+	'How tall would all your notes be if you stacked them up?'
+];
+
+const WRITING_MODE_QUOTES = [
+	`Is that the best you can do? Keep writing!`,
+	`Write first, editor later.`,
+	`I love hearing your keyboard. Don't stop.`,
+	`How about we review some old notes today?`,
+	`Stuck? Try journaling what happened today and see if that gives you inspiration.`,
+	`Maybe it's time to go get some water or coffee.`,
+	`Anything is better than a blank page, even me. Write something!`
+];
+
+// TODO: use settings for these
+const TALK_FREQUENCY = 5000;
+const BUBBLE_DURATION = 1000;
+
+export default class Gemmy extends Plugin {
+	settings: GemmySettings;
+	gemmyEl: HTMLElement;
+	imageEl: HTMLElement;
+	intervalId: number;
+	inWritingMode: boolean = false;
+	writingModeTimeout: number;
+	appeared: boolean = false;
 
 	async onload() {
 		await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('my-plugin-ribbon-class');
+		// TOOD: prettier speech bubbles
+		let gemmyEl = this.gemmyEl = document.body.createDiv('gemmy-container');
+		gemmyEl.setAttribute('aria-label-position', 'top');
+		gemmyEl.setAttribute('aria-label-delay', '0');
+		gemmyEl.setAttribute('aria-label-classes', 'gemmy-tooltip');
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status Bar Text');
+		let gemmyImageEl = this.imageEl = gemmyEl.createEl('img', {});
+		gemmyImageEl.setAttribute('src', NORMAL_BASE64);
 
-		// This adds a simple command that can be triggered anywhere
+		gemmyEl.hide();
+
 		this.addCommand({
-			id: 'open-sample-modal-simple',
-			name: 'Open sample modal (simple)',
+			id: 'gemmy:show',
+			name: 'Show Gemmy',
 			callback: () => {
-				new SampleModal(this.app).open();
+				this.appear();
 			}
 		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection('Sample Editor Command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-sample-modal-complex',
-			name: 'Open sample modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
 
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
+		this.addCommand({
+			id: 'gemmy:hide',
+			name: 'Hide Gemmy',
+			callback: () => {
+				this.disappear();
+			}
+		});
+
+		this.addCommand({
+			id: 'gemmy:enter-writing-mode',
+			name: 'Enter writing mode',
+			callback: () => {
+				this.enterWritingMode();
+			}
+		});
+
+		this.addCommand({
+			id: 'gemmy:exit-writing-mode',
+			name: 'Exit writing mode',
+			callback: () => {
+				this.exitWritingMode();
 			}
 		});
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+		this.addSettingTab(new GemmySettingTab(this.app, this));
 
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
+		this.gemmyEl.addEventListener('mouseenter', () => {
+			if (this.inWritingMode) {
+				return;
+			}
+
+			this.saySomething(GEMMY_IDLE_QUOTES, true);
+			this.intervalId && clearInterval(this.intervalId);
+
+		});
+		this.gemmyEl.addEventListener('mouseleave', () => {
+			if (this.inWritingMode) {
+				return;
+			}
+
+			this.imageEl.setAttribute('src', NORMAL_BASE64);
+			this.restartIdleInterval();
 		});
 
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
+		this.restartIdleInterval();
+
+		// debounce editor-change event on workspace
+		this.registerEvent(this.app.workspace.on('editor-change', debounce(() => {
+			if (!this.inWritingMode) {
+				return;
+			}
+
+			this.disappear();
+			this.setWritingModeTimeout();
+		}, 500)));
+	}
+
+	appear() {
+		let { gemmyEl, imageEl } = this;
+
+		imageEl.setAttribute('src', EMERGE_MOTION_BASE64);
+		setTimeout(() => {
+			imageEl.setAttribute('src', NORMAL_BASE64);
+			this.appeared = true;
+
+			if (this.inWritingMode) {
+				this.saySomething(WRITING_MODE_QUOTES, true);
+			}
+		}, 4800);
+
+		gemmyEl.show();
+	}
+
+	disappear() {
+		this.gemmyEl.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, clientX: 10, clientY: 10 }));
+		this.gemmyEl.hide();
+	}
+
+	enterWritingMode() {
+		let { gemmyEl } = this;
+		this.inWritingMode = true;
+
+		this.disappear();
+
+		this.setWritingModeTimeout();
+	}
+
+	exitWritingMode() {
+		this.inWritingMode = false;
+		this.appear();
+
+		window.clearTimeout(this.writingModeTimeout);
+	}
+
+	setWritingModeTimeout() {
+		if (this.writingModeTimeout) {
+			window.clearTimeout(this.writingModeTimeout);
+		}
+
+		this.writingModeTimeout = window.setTimeout(() => {
+			if (!this.inWritingMode) {
+				return;
+			}
+
+			this.appear();
+		}, this.settings.writingModeDeadline * 60000);
+	}
+
+	restartIdleInterval() {
+		this.intervalId = this.registerInterval(window.setInterval(() => {
+			if (this.inWritingMode) {
+				return;
+			}
+
+			this.saySomething(GEMMY_IDLE_QUOTES, false);
+		}, TALK_FREQUENCY));
+	}
+
+	saySomething(quotes: string[], persistent: boolean) {
+		if (!this.appeared) {
+			return;
+		}
+
+		let randomThing = quotes[Math.floor(Math.random() * quotes.length)];
+
+		this.gemmyEl.setAttr('aria-label', randomThing);
+		this.gemmyEl.setAttr('aria-label-position', 'top');
+		this.gemmyEl.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, clientX: 10, clientY: 10 }))
+		this.imageEl.setAttribute('src', SPEAKING_BASE64);
+
+		if (!persistent) {
+			setTimeout(() => {
+				this.gemmyEl.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, clientX: 10, clientY: 10 }));
+				this.imageEl.setAttribute('src', NORMAL_BASE64);
+			}, BUBBLE_DURATION);
+		}
 	}
 
 	onunload() {
@@ -91,47 +233,32 @@ export default class MyPlugin extends Plugin {
 	}
 }
 
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
+// TODO: proper setting tab
+class GemmySettingTab extends PluginSettingTab {
+	plugin: Gemmy;
 
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-}
-
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
-
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: Gemmy) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
 
 	display(): void {
-		const {containerEl} = this;
+		const { containerEl } = this;
 
 		containerEl.empty();
 
-		containerEl.createEl('h2', {text: 'Settings for my awesome plugin.'});
+		containerEl.createEl('h2', { text: 'Settings for my awesome plugin.' });
 
-		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
-				.onChange(async (value) => {
-					console.log('Secret: ' + value);
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
-				}));
+		// new Setting(containerEl)
+		// 	.setName('Setting #1')
+		// 	.setDesc('It\'s a secret')
+		// 	.addText(text => text
+		// 		.setPlaceholder('Enter your secret')
+		// 		.setValue(this.plugin.settings.mySetting)
+		// 		.onChange(async (value) => {
+		// 			console.log('Secret: ' + value);
+		// 			this.plugin.settings.mySetting = value;
+		// 			await this.plugin.saveSettings();
+		// 		}));
 	}
 }
