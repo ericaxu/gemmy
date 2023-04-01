@@ -7,18 +7,16 @@ import LOOK_MOTION from './animations/gemmy_lookAround.gif'
 import IDLE_MOTION from './animations/gemmy_idle.gif'
 import DISAPPOINT_IMG from './animations/gemmy_disappoint.gif'
 
-// Remember to rename these classes and interfaces!
-
 interface GemmySettings {
 	// how often does Gemmy talk in idle mode, in minutes
 	idleTalkFrequency: number;
 	// the number of minutes you must write before Gemmy appears to mock you
-	writingModeDeadline: number;
+	writingModeGracePeriod: number;
 }
 
 const DEFAULT_SETTINGS: GemmySettings = {
 	idleTalkFrequency: 5,
-	writingModeDeadline: 5
+	writingModeGracePeriod: 5
 };
 
 
@@ -70,7 +68,7 @@ export default class Gemmy extends Plugin {
 		gemmyEl.setAttribute('aria-label-delay', '0');
 		gemmyEl.setAttribute('aria-label-classes', 'gemmy-tooltip');
 
-		let gemmyImageEl = this.imageEl = gemmyEl.createEl('img', {});
+		this.imageEl = gemmyEl.createEl('img', {});
 
 		this.addCommand({
 			id: 'show',
@@ -136,6 +134,8 @@ export default class Gemmy extends Plugin {
 			this.disappear();
 			this.setWritingModeTimeout();
 		}, 500)));
+
+		app.workspace.onLayoutReady(this.appear.bind(this));
 	}
 
 	appear() {
@@ -143,18 +143,14 @@ export default class Gemmy extends Plugin {
 
 		imageEl.setAttribute('src', EMERGE_MOTION);
 
-		// Quick if we're in writing mode
+		// Quicker if we're in writing mode
 		if (this.inWritingMode) {
 			imageEl.setAttribute('src', POP_MOTION);
 
 			setTimeout(() => {
-				// imageEl.setAttribute('src', DISAPPOINT_IMG);
-				// setTimeout(() => {
-				// imageEl.setAttribute('src', DISAPPOINT_IMG);
 				this.appeared = true;
 
 				this.saySomething(WRITING_MODE_QUOTES, true);
-				// }, 1000);
 			}, 1800);
 		}
 		else {
@@ -185,7 +181,6 @@ export default class Gemmy extends Plugin {
 	}
 
 	enterWritingMode() {
-		let { gemmyEl } = this;
 		this.inWritingMode = true;
 
 		this.disappear();
@@ -211,7 +206,7 @@ export default class Gemmy extends Plugin {
 			}
 
 			this.appear();
-		}, this.settings.writingModeDeadline * 60000);
+		}, this.settings.writingModeGracePeriod * 1000);
 	}
 
 	startNextIdleTimeout() {
@@ -264,7 +259,7 @@ export default class Gemmy extends Plugin {
 	}
 
 	onunload() {
-
+		this.disappear();
 	}
 
 	async loadSettings() {
@@ -276,7 +271,6 @@ export default class Gemmy extends Plugin {
 	}
 }
 
-// TODO: proper setting tab
 class GemmySettingTab extends PluginSettingTab {
 	plugin: Gemmy;
 
@@ -304,13 +298,13 @@ class GemmySettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Writing mode grace period')
-			.setDesc('How soon Gemmy starts to get disappointed after you stop tying in writing mode, in minutes.')
+			.setDesc('How soon Gemmy starts to get disappointed after you stop tying in writing mode, in seconds.')
 			.addSlider(slider => slider
-				.setLimits(5, 60, 5)
+				.setLimits(5, 180, 5)
 				.setDynamicTooltip()
-				.setValue(this.plugin.settings.writingModeDeadline)
+				.setValue(this.plugin.settings.writingModeGracePeriod)
 				.onChange(async (value) => {
-					this.plugin.settings.writingModeDeadline = value;
+					this.plugin.settings.writingModeGracePeriod = value;
 					await this.plugin.saveSettings();
 				}));
 	}
