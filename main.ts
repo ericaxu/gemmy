@@ -1,21 +1,24 @@
 import { App, debounce, Plugin, PluginSettingTab, Setting } from 'obsidian';
-import { NORMAL_BASE64, SPEAKING_BASE64 } from 'resources';
-import EMERGE_MOTION_BASE64 from './gemmy_emerge.gif';
+import EMERGE_MOTION from './animations/gemmy_emerge.gif';
+import POP_MOTION from './animations/gemmy_pop.gif';
+import DISAPPEAR_MOTION from './animations/gemmy_disappear.gif';
+import ANGRY_MOTION from './animations/gemmy_angry.gif';
+import LOOK_MOTION from './animations/gemmy_lookAround.gif'
+import IDLE_MOTION from './animations/gemmy_idle.gif'
+import DISAPPOINT_IMG from './animations/gemmy_disappoint.gif'
 
 // Remember to rename these classes and interfaces!
 
 interface GemmySettings {
-	show: boolean;
-	// in minutes
-	talkFrequency: number;
+	// how often does Gemmy talk in idle mode, in minutes
+	idleTalkFrequency: number;
 	// the number of minutes you must write before Gemmy appears to mock you
 	writingModeDeadline: number;
 }
 
 const DEFAULT_SETTINGS: GemmySettings = {
-	show: true,
-	talkFrequency: 5,
-	writingModeDeadline: 0.1
+	idleTalkFrequency: 5,
+	writingModeDeadline: 5
 };
 
 
@@ -25,15 +28,17 @@ const GEMMY_IDLE_QUOTES = [
 	"You have plugins that you can update!",
 	"Hi I'm Gemmy! Like Clippy but shinier!",
 	"Everything is connected. Everything.",
-	`It looks like you’re writing a note.
+	`It looks like you’re writing a note.,
 
 Would you like help?
 - Get help with writing the note
 - Just type the note without help
 - [ ] Don’t show me this tip again`,
 	'Can’t decide which note to work on? Try the Random Note core plugin!',
-	'Are you sure you don’t want to upload all your notes so you can talk',
-	'How tall would all your notes be if you stacked them up?'
+	'Are you sure you don’t want to upload all your notes just so we can chat?',
+	'How tall would all your notes be if you stacked them up?',
+	'Wanna teach me to say things? Find me on GitHub and open a pull request!',
+	'Have you considered using Comic Sans?'
 ];
 
 const WRITING_MODE_QUOTES = [
@@ -46,35 +51,29 @@ const WRITING_MODE_QUOTES = [
 	`Anything is better than a blank page, even me. Write something!`
 ];
 
-// TODO: use settings for these
-const TALK_FREQUENCY = 5000;
-const BUBBLE_DURATION = 1000;
+const BUBBLE_DURATION = 5000;
 
 export default class Gemmy extends Plugin {
 	settings: GemmySettings;
 	gemmyEl: HTMLElement;
 	imageEl: HTMLElement;
-	intervalId: number;
 	inWritingMode: boolean = false;
+	idleTimeout: number;
 	writingModeTimeout: number;
 	appeared: boolean = false;
 
 	async onload() {
 		await this.loadSettings();
 
-		// TOOD: prettier speech bubbles
-		let gemmyEl = this.gemmyEl = document.body.createDiv('gemmy-container');
+		let gemmyEl = this.gemmyEl = createDiv('gemmy-container');
 		gemmyEl.setAttribute('aria-label-position', 'top');
 		gemmyEl.setAttribute('aria-label-delay', '0');
 		gemmyEl.setAttribute('aria-label-classes', 'gemmy-tooltip');
 
 		let gemmyImageEl = this.imageEl = gemmyEl.createEl('img', {});
-		gemmyImageEl.setAttribute('src', NORMAL_BASE64);
-
-		gemmyEl.hide();
 
 		this.addCommand({
-			id: 'gemmy:show',
+			id: 'show',
 			name: 'Show Gemmy',
 			callback: () => {
 				this.appear();
@@ -82,7 +81,7 @@ export default class Gemmy extends Plugin {
 		});
 
 		this.addCommand({
-			id: 'gemmy:hide',
+			id: 'hide',
 			name: 'Hide Gemmy',
 			callback: () => {
 				this.disappear();
@@ -90,7 +89,7 @@ export default class Gemmy extends Plugin {
 		});
 
 		this.addCommand({
-			id: 'gemmy:enter-writing-mode',
+			id: 'enter-writing-mode',
 			name: 'Enter writing mode',
 			callback: () => {
 				this.enterWritingMode();
@@ -98,10 +97,10 @@ export default class Gemmy extends Plugin {
 		});
 
 		this.addCommand({
-			id: 'gemmy:exit-writing-mode',
-			name: 'Exit writing mode',
+			id: 'leave-writing-mode',
+			name: 'Leave writing mode',
 			callback: () => {
-				this.exitWritingMode();
+				this.leaveWritingMode();
 			}
 		});
 
@@ -114,7 +113,7 @@ export default class Gemmy extends Plugin {
 			}
 
 			this.saySomething(GEMMY_IDLE_QUOTES, true);
-			this.intervalId && clearInterval(this.intervalId);
+			this.idleTimeout && clearTimeout(this.idleTimeout);
 
 		});
 		this.gemmyEl.addEventListener('mouseleave', () => {
@@ -122,11 +121,11 @@ export default class Gemmy extends Plugin {
 				return;
 			}
 
-			this.imageEl.setAttribute('src', NORMAL_BASE64);
-			this.restartIdleInterval();
+			this.imageEl.setAttribute('src', IDLE_MOTION);
+			this.startNextIdleTimeout();
 		});
 
-		this.restartIdleInterval();
+		this.startNextIdleTimeout();
 
 		// debounce editor-change event on workspace
 		this.registerEvent(this.app.workspace.on('editor-change', debounce(() => {
@@ -142,22 +141,47 @@ export default class Gemmy extends Plugin {
 	appear() {
 		let { gemmyEl, imageEl } = this;
 
-		imageEl.setAttribute('src', EMERGE_MOTION_BASE64);
-		setTimeout(() => {
-			imageEl.setAttribute('src', NORMAL_BASE64);
-			this.appeared = true;
+		imageEl.setAttribute('src', EMERGE_MOTION);
 
-			if (this.inWritingMode) {
+		// Quick if we're in writing mode
+		if (this.inWritingMode) {
+			imageEl.setAttribute('src', POP_MOTION);
+
+			setTimeout(() => {
+				// imageEl.setAttribute('src', DISAPPOINT_IMG);
+				// setTimeout(() => {
+				// imageEl.setAttribute('src', DISAPPOINT_IMG);
+				this.appeared = true;
+
 				this.saySomething(WRITING_MODE_QUOTES, true);
-			}
-		}, 4800);
+				// }, 1000);
+			}, 1800);
+		}
+		else {
+			imageEl.setAttribute('src', EMERGE_MOTION);
 
+			setTimeout(() => {
+				imageEl.setAttribute('src', IDLE_MOTION);
+				this.appeared = true;
+			}, 3800);
+		}
+
+		document.body.appendChild(gemmyEl);
 		gemmyEl.show();
 	}
 
 	disappear() {
+		this.idleTimeout && window.clearTimeout(this.idleTimeout);
+		this.writingModeTimeout && window.clearTimeout(this.writingModeTimeout);
+
+		this.imageEl.setAttribute('src', DISAPPEAR_MOTION);
+		// remote tooltip
 		this.gemmyEl.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, clientX: 10, clientY: 10 }));
-		this.gemmyEl.hide();
+		setTimeout(() => {
+			this.gemmyEl.hide();
+			this.appeared = false;
+		}, 1300);
+
 	}
 
 	enterWritingMode() {
@@ -169,9 +193,9 @@ export default class Gemmy extends Plugin {
 		this.setWritingModeTimeout();
 	}
 
-	exitWritingMode() {
+	leaveWritingMode() {
 		this.inWritingMode = false;
-		this.appear();
+		this.disappear();
 
 		window.clearTimeout(this.writingModeTimeout);
 	}
@@ -190,14 +214,24 @@ export default class Gemmy extends Plugin {
 		}, this.settings.writingModeDeadline * 60000);
 	}
 
-	restartIdleInterval() {
-		this.intervalId = this.registerInterval(window.setInterval(() => {
+	startNextIdleTimeout() {
+		// if the set time is 5 minutes, this will set timeout to be a random time between 4-6 minutes
+		// the range will be 80% - 120%
+		let randomFactor = 0.8 + 0.4 * Math.random();
+		let randomizedTimeout = randomFactor * this.settings.idleTalkFrequency * 60000;
+
+		if (this.idleTimeout) {
+			window.clearTimeout(this.idleTimeout);
+		}
+
+		this.idleTimeout = window.setTimeout(() => {
 			if (this.inWritingMode) {
 				return;
 			}
 
 			this.saySomething(GEMMY_IDLE_QUOTES, false);
-		}, TALK_FREQUENCY));
+			this.startNextIdleTimeout();
+		}, randomizedTimeout);
 	}
 
 	saySomething(quotes: string[], persistent: boolean) {
@@ -210,12 +244,21 @@ export default class Gemmy extends Plugin {
 		this.gemmyEl.setAttr('aria-label', randomThing);
 		this.gemmyEl.setAttr('aria-label-position', 'top');
 		this.gemmyEl.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, clientX: 10, clientY: 10 }))
-		this.imageEl.setAttribute('src', SPEAKING_BASE64);
+
+		if (this.inWritingMode) {
+			this.imageEl.setAttribute('src', ANGRY_MOTION);
+			setTimeout(() => {
+				this.imageEl.setAttribute('src', DISAPPOINT_IMG);
+			}, 1000);
+		}
+		else {
+			this.imageEl.setAttribute('src', LOOK_MOTION);
+		}
 
 		if (!persistent) {
 			setTimeout(() => {
 				this.gemmyEl.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, clientX: 10, clientY: 10 }));
-				this.imageEl.setAttribute('src', NORMAL_BASE64);
+				this.imageEl.setAttribute('src', IDLE_MOTION);
 			}, BUBBLE_DURATION);
 		}
 	}
@@ -247,18 +290,28 @@ class GemmySettingTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		containerEl.createEl('h2', { text: 'Settings for my awesome plugin.' });
+		new Setting(containerEl)
+			.setName('Idle talk frequency')
+			.setDesc('How often does Gemmy speak when idle, in minutes.')
+			.addSlider(slider => slider
+				.setLimits(5, 60, 5)
+				.setValue(this.plugin.settings.idleTalkFrequency)
+				.setDynamicTooltip()
+				.onChange(async (value) => {
+					this.plugin.settings.idleTalkFrequency = value;
+					await this.plugin.saveSettings();
+				}));
 
-		// new Setting(containerEl)
-		// 	.setName('Setting #1')
-		// 	.setDesc('It\'s a secret')
-		// 	.addText(text => text
-		// 		.setPlaceholder('Enter your secret')
-		// 		.setValue(this.plugin.settings.mySetting)
-		// 		.onChange(async (value) => {
-		// 			console.log('Secret: ' + value);
-		// 			this.plugin.settings.mySetting = value;
-		// 			await this.plugin.saveSettings();
-		// 		}));
+		new Setting(containerEl)
+			.setName('Writing mode grace period')
+			.setDesc('How soon Gemmy starts to get disappointed after you stop tying in writing mode, in minutes.')
+			.addSlider(slider => slider
+				.setLimits(5, 60, 5)
+				.setDynamicTooltip()
+				.setValue(this.plugin.settings.writingModeDeadline)
+				.onChange(async (value) => {
+					this.plugin.settings.writingModeDeadline = value;
+					await this.plugin.saveSettings();
+				}));
 	}
 }
