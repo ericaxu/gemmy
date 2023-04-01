@@ -30,6 +30,14 @@ Special thanks: [Rigmarole](https://rigmarolestudio.com/) for creating and anima
 
 Credit: the talented Obsidian mods team, including argentum, CawlinTeffid, cotmax, Eleanor Koink, koala, Leah, rigmarole, ryanjamurphy & WhiteNoise
 
+The code is under MIT license, whereas the Gemmy character is under CC BY 3.0 license.
+
+Obsidian logo is adapted from:
+
+[Crystal shard icon](https://icon-icons.com/icon/Crystal-Shard/88819)  
+By [Chanut is Industries](https://icon-icons.com/users/W52nHhY3W1VlvwyJTwS4d/icon-sets/)  
+License: Attribution 3.0 Unported (CC BY 3.0)
+
 ---
 
 ## Happy April Fools'
