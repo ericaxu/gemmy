@@ -20,8 +20,18 @@ Gemmy pops out to [motivate you](https://user-images.githubusercontent.com/11711
 
 Risk: Gemmy might actually be helpful with writing if you use this mode. We're not responsibility for any extra productivity Gemmy brings.
 
+## How to use
+
+Install Gemmy. There are four commands in command palette when you type "Gemmy". You can figure out the rest on your own.
+
 ---
 
 Special thanks: [Rigmarole](https://rigmarolestudio.com/) for creating and animating Gemmy
 
-Credit: the taltent Obsidian mods team, including argentum, CawlinTeffid, cotmax, Eleanor Koink, koala, Leah, rigmarole, ryanjamurphy & WhiteNoise
+Credit: the talented Obsidian mods team, including argentum, CawlinTeffid, cotmax, Eleanor Koink, koala, Leah, rigmarole, ryanjamurphy & WhiteNoise
+
+---
+
+## Happy April Fools'
+
+Gemmy was proudly released on April 1, 2023.
