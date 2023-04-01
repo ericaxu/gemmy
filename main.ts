@@ -26,7 +26,7 @@ const GEMMY_IDLE_QUOTES = [
 	"You have plugins that you can update!",
 	"Hi I'm Gemmy! Like Clippy but shinier!",
 	"Everything is connected. Everything.",
-	`It looks like you’re writing a note.,
+	`It looks like you’re writing a note.
 
 Would you like help?
 - Get help with writing the note
