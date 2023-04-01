@@ -6,29 +6,29 @@ Not sure if an AI assistant is going to be helpful in your workflow?
 
 Don't worry, we've eliminated the guesswork for you because Gemmy is 100% going to be unhelpful.
 
-Introducing Obsidian's first assistant - Gemmy, the Obsidian Unhelper. It has two major features:
+Introducing Obsidian's first assistant — Gemmy, the Obsidian Unhelper. It has two major features:
 
 ## Randomly saying things
 
-Gemmy seeks validation by saying randomly things every now and then.
+Gemmy seeks validation by randomly saying things every now and then.
 
 You can customize how often this happens. Or just don't summon Gemmy.
 
 ## Writing mode
 
-Gemmy pops out to [motivate you](https://user-images.githubusercontent.com/1171143/229297494-8a0cae3f-4c8e-47a9-801b-dd1c52dfc917.png) when you have stop typing for long enough. Again you can customize how long that would be.
+Gemmy pops out to [motivate you](https://user-images.githubusercontent.com/1171143/229297494-8a0cae3f-4c8e-47a9-801b-dd1c52dfc917.png) when you have stopped typing for long enough. Again, you can customize how long that should be.
 
-Risk: Gemmy might actually be helpful with writing if you use this mode. We're not responsibility for any extra productivity Gemmy brings.
+Risk: Gemmy might actually be helpful with writing if you use this mode. We're not responsible for any extra productivity Gemmy might bring.
 
 ## How to use
 
-Install Gemmy. There are four commands in command palette when you type "Gemmy". You can figure out the rest on your own.
+Install Gemmy. There are four commands in the command palette when you type "Gemmy". You can figure out the rest on your own.
 
 ---
 
 Special thanks: [Rigmarole](https://rigmarolestudio.com/) for creating and animating Gemmy
 
-Credit: the talented Obsidian mods team, including argentum, CawlinTeffid, cotmax, Eleanor Koink, koala, Leah, rigmarole, ryanjamurphy & WhiteNoise
+Credit: the talented Obsidian mods team, including argentum, CawlinTeffid, cotmax, Eleanor Konik, koala, Leah, rigmarole, ryanjamurphy & WhiteNoise
 
 The code is under MIT license, whereas the Gemmy character is under CC BY 3.0 license.
 
