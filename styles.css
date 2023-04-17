@@ -14,7 +14,7 @@ If your plugin does not need CSS, delete this file.
 .gemmy-container {
         position: fixed;
         bottom: 30px;
-        right: 30px;
+        right: 0;
 }
 
 .gemmy-container img {
