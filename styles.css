@@ -8,32 +8,560 @@ If your plugin does not need CSS, delete this file.
 */
 
 :root {
-        --gemmy-size: 80px;
+	--gemmy-size: 120px;
 }
 
-.gemmy-container {
-        position: fixed;
-        bottom: 30px;
-        right: 30px;
-        display: flex;
-        flex-direction: column;
-        align-items: flex-end;
+/* --- GEMMY MASCOT STYLES --- */
+.mascot-wrapper {
+	--gemmy-primary: #8a5cf5;
+	--gemmy-secondary: #7c52fa;
+	--gemmy-highlight: #a88bfa;
+	--gemmy-shadow: #5e3dc4;
+	--gemmy-eye-bg: #ffffff;
+	--gemmy-pupil: #1a1a24;
+
+	/* Dynamic Logic Vars */
+	--look-x: 0;
+	--look-y: 0;
+	--blink-scale: 1;
+	--pupil-scale: 1;
+
+	position: fixed;
+	bottom: 30px; /* Above the FAB if present, or just in corner */
+	right: 20px;
+	width: var(--gemmy-size);
+	height: var(--gemmy-size);
+	animation: floating 6s ease-in-out infinite;
+	cursor: pointer;
+	-webkit-tap-highlight-color: transparent;
+	/* Super bouncy transition for cartoon feel */
+	transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55),
+		opacity 0.5s ease;
+	z-index: 2000;
 }
 
-.gemmy-container img {
-        width: var(--gemmy-size);
-        height: var(--gemmy-size);
-        border-radius: var(--gemmy-size);
+.mascot-floater {
+	transform: none;
+	opacity: 1;
+	transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55),
+		opacity 0.5s ease;
 }
 
-.gemmy-container[aria-label]::before {
-        --background-modifier-message: #FFFFCB;
-        content: attr(aria-label);
-        color: #202020;
-        font-size: var(--font-ui-medium);
-        border-radius: 20px;
-        padding: var(--size-4-3) var(--size-4-6);
-        width: 150px;
-        background: var(--background-modifier-message);
-    }
-    
+.mascot-wrapper.is-hidden .mascot-floater {
+	transform: scale(0) rotateY(720deg);
+	opacity: 0;
+	pointer-events: none;
+	animation: none;
+}
+
+.mascot-wrapper.is-hidden:hover {
+	/* No hover effect when completely hidden */
+
+	pointer-events: auto;
+}
+
+.obsidian-mascot {
+	width: 100%;
+	height: 100%;
+	/* Add a brighter drop shadow to simulate backlighting/bioluminescence */
+	filter: drop-shadow(0 0 15px rgba(138, 92, 245, 0.4));
+	transition: filter 0.3s ease,
+		transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+	overflow: visible; /* Let the eyes go outside the bounds if needed */
+}
+
+/* --- 1.5 MASCOT BODY (Look Movement) --- */
+.mascot-body {
+	width: 100%;
+	height: 100%;
+	/* Move the body slightly in the direction of the look */
+	transform: translate(
+		calc(var(--look-x) * -10px),
+		calc(var(--look-y) * -10px)
+	);
+	/* Removed transition to prevent conflict with JS physics loop */
+	will-change: transform;
+}
+
+/* Update the Face Group to respond to the Look Variables */
+.face-container {
+	/* Removed transition to prevent conflict with JS physics loop */
+	/* The face moves 12px, while pupils move internally. 
+     This creates the illusion that the face is on the 'front' of the crystal. */
+	transform: translate(calc(var(--look-x) * 3px), calc(var(--look-y) * 2px));
+	will-change: transform;
+}
+
+/* Interaction: Active Click - Squash! */
+.mascot-wrapper:active .obsidian-mascot {
+	transform: scale(0.9, 0.8);
+}
+
+/* --- SPEECH BUBBLE --- */
+.speech-bubble {
+	position: absolute;
+	bottom: 100%;
+	/* Anchor to the right to prevent overflow off-screen */
+	right: 0;
+	left: auto;
+	transform: translateY(10px);
+	background: white;
+	color: #1a103c;
+	padding: 12px 16px;
+	border-radius: 18px;
+	font-weight: bold;
+	font-size: 14px;
+	line-height: 1.4;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.3s ease, transform 0.3s ease;
+	/* Text wrapping logic */
+	white-space: normal;
+	min-width: var(
+		--gemmy-size
+	); /* Ensure it covers the mascot width so arrow stays aligned */
+	max-width: 250px; /* Constrain width */
+	width: max-content; /* Shrink to fit */
+	text-align: center;
+	z-index: -1;
+	margin-bottom: 15px;
+	box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.speech-bubble::after {
+	content: "";
+	position: absolute;
+	top: 100%;
+	/* Position arrow relative to the mascot center (120px / 2 = 60px) */
+	right: calc(var(--gemmy-size) / 2 - 8px); /* 60px - 8px border */
+	left: auto;
+	margin-left: 0;
+	border-width: 8px;
+	border-style: solid;
+	border-color: white transparent transparent transparent;
+}
+
+.speech-bubble.visible {
+	opacity: 1;
+	transform: translateY(0);
+}
+
+/* --- 4. Breathing Animation --- */
+.facet-body-top,
+.facet-left-wing,
+.facet-base,
+.facet-right-side {
+	transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+	transform-box: fill-box;
+}
+.facet-body-top {
+	animation: breatheTop 5s ease-in-out infinite;
+}
+.facet-left-wing {
+	animation: breatheLeft 5s ease-in-out infinite;
+}
+.facet-base {
+	animation: breatheBase 5s ease-in-out infinite;
+}
+.facet-right-side {
+	animation: breatheRight 5s ease-in-out infinite;
+}
+
+@keyframes breatheTop {
+	0%,
+	100% {
+		transform: translate(0, 0);
+	}
+	50% {
+		transform: translate(0, -0.3px);
+	}
+}
+@keyframes breatheLeft {
+	0%,
+	100% {
+		transform: translate(0, 0);
+	}
+	50% {
+		transform: translate(-0.3px, 0.15px);
+	}
+}
+@keyframes breatheRight {
+	0%,
+	100% {
+		transform: translate(0, 0);
+	}
+	50% {
+		transform: translate(0.3px, -0.1px);
+	}
+}
+@keyframes breatheBase {
+	0%,
+	100% {
+		transform: translate(0, 0);
+	}
+	50% {
+		transform: translate(0, 0.3px);
+	}
+}
+
+/* --- 2. CRYSTAL BODY (Base) --- */
+.facet {
+	transition: fill 0.3s ease, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+	transform-origin: center;
+	stroke: rgba(255, 255, 255, 0.1);
+	stroke-width: 0.5px;
+}
+
+/* Hover effects on individual facets for "tactile" feel */
+.facet:hover {
+	filter: brightness(1.2);
+	transform: scale(1.05);
+}
+
+/* --- 3. THE EYES (The Soul) --- */
+.eye-socket {
+	transform-box: fill-box;
+	transform-origin: center;
+	transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* Sclera - The White Part */
+.sclera {
+	fill: var(--gemmy-eye-bg);
+	transform-box: fill-box;
+	transform-origin: center;
+	transform: scaleY(var(--blink-scale));
+	transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+		d 0.3s ease;
+}
+
+/* Pupil Group - Includes Glint */
+.pupil-group {
+	transform-box: fill-box;
+	transform-origin: center;
+	/* REMOVED transition to allow JS physics to snap */
+	/* Logic: Look Coordinates ONLY */
+	transform: translate(
+		calc(var(--look-x) * 3.5px),
+		calc(var(--look-y) * 2.5px)
+	);
+}
+
+.pupil {
+	fill: var(--gemmy-pupil);
+	transform-box: fill-box;
+	transform-origin: center;
+	transform: scaleY(var(--blink-scale));
+	transition: r 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+		transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+	r: 1.6; /* Base size */
+}
+
+.glint {
+	fill: #fff;
+	opacity: 0.9;
+	transform-box: fill-box;
+	transform-origin: center;
+	transform: scaleY(var(--blink-scale));
+	transition: opacity 0.3s ease,
+		transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* --- 4. EYEBROWS (The Attitude) --- */
+.eyebrow {
+	fill: none;
+	stroke: #1a1a24;
+	stroke-width: 1.2;
+	stroke-linecap: round;
+	filter: drop-shadow(0 0 0.1px #fff);
+	/* Smooth transitions for morphing expressions */
+	transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55),
+		d 0.3s ease, opacity 0.3s ease;
+	transform-box: fill-box;
+	transform-origin: center;
+}
+
+/* =========================================
+EMOTIONAL STATE ENGINE (CSS CLASSES)
+========================================= */
+
+/* HAPPY: Cheerful, big eyes, high brows */
+.mascot-wrapper.is-happy .sclera {
+	transform: scaleY(var(--blink-scale));
+} /* Normal open */
+.mascot-wrapper.is-happy .pupil {
+	r: 1.9;
+} /* Dilated pupils (excitement) */
+.mascot-wrapper.is-happy .eyebrow {
+	transform: translateY(-3px);
+} /* High brows */
+.mascot-wrapper.is-happy {
+	animation: floating-happy 3s ease-in-out infinite;
+} /* Faster float */
+
+/* ANGRY: Furrowed brows, small pupils, intense, shaking */
+.mascot-wrapper.is-angry .eyebrow-left {
+	transform: rotate(25deg) translateY(1px);
+}
+.mascot-wrapper.is-angry .eyebrow-right {
+	transform: rotate(-25deg) translateY(1px);
+}
+.mascot-wrapper.is-angry .sclera {
+	transform: scaleY(0.8) scaleX(0.95);
+} /* Slight squint */
+.mascot-wrapper.is-angry .pupil {
+	r: 1.2;
+} /* Pinprick pupils */
+.mascot-wrapper.is-angry .obsidian-mascot {
+	filter: drop-shadow(0 0 20px rgba(255, 50, 50, 0.3));
+	animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) infinite both;
+} /* Reddish glow & Shake */
+
+/* SUSPICIOUS: Squinting, flat brows, lean */
+.mascot-wrapper.is-suspicious .sclera {
+	transform: scaleY(0.35) scaleX(1.1);
+}
+.mascot-wrapper.is-suspicious .eyebrow {
+	transform: translateY(2.5px) scaleX(1.1);
+}
+.mascot-wrapper.is-suspicious .pupil-group {
+	transform: translate(calc(var(--look-x) * 2px), 0)
+		scaleY(var(--blink-scale));
+} /* Restrict Y looking */
+.mascot-wrapper.is-suspicious .obsidian-mascot {
+	transform: rotate(-5deg);
+}
+
+/* SAD: Inverted V brows, drooping eyes, low float */
+.mascot-wrapper.is-sad .eyebrow-left {
+	transform: rotate(-15deg) translateY(-1px);
+}
+.mascot-wrapper.is-sad .eyebrow-right {
+	transform: rotate(15deg) translateY(-1px);
+}
+.mascot-wrapper.is-sad .sclera {
+	transform: scaleY(0.9);
+}
+.mascot-wrapper.is-sad .pupil {
+	r: 1.8;
+} /* Watery eyes */
+.mascot-wrapper.is-sad .pupil-group {
+	transform: translate(calc(var(--look-x) * 1px), 2px)
+		scaleY(var(--blink-scale));
+} /* Looks down */
+.mascot-wrapper.is-sad {
+	animation: floating-sad 8s ease-in-out infinite;
+}
+
+/* CONFUSED: Asymmetric, tilt */
+.mascot-wrapper.is-confused .eyebrow-left {
+	transform: translateY(-3px) rotate(-10deg);
+} /* High left */
+.mascot-wrapper.is-confused .eyebrow-right {
+	transform: translateY(1px) rotate(5deg);
+} /* Low right */
+.mascot-wrapper.is-confused .eye-socket:nth-child(2) {
+	transform: scale(0.9);
+} /* Slight squint one eye */
+.mascot-wrapper.is-confused .obsidian-mascot {
+	transform: rotate(10deg);
+}
+
+/* SHY: Looks away from mouse, shrinks */
+.mascot-wrapper.is-shy .eyebrow {
+	transform: translateY(1px);
+	opacity: 0.7;
+}
+.mascot-wrapper.is-shy .sclera {
+	transform: scale(0.9);
+}
+.mascot-wrapper.is-shy .obsidian-mascot {
+	transform: scale(0.9);
+}
+
+/* SLEEPING */
+.mascot-wrapper.is-sleeping .sclera {
+	transform: scaleY(0.05);
+}
+.mascot-wrapper.is-sleeping .pupil-group {
+	opacity: 0;
+}
+.mascot-wrapper.is-sleeping .eyebrow {
+	transform: translateY(2px);
+	opacity: 0.5;
+}
+.mascot-wrapper.is-sleeping .obsidian-mascot {
+	filter: grayscale(0.8) opacity(0.7);
+}
+.mascot-wrapper.is-sleeping {
+	animation: floating-sleep 8s ease-in-out infinite;
+}
+
+/* SURPRISED: The "Pop" - Huge eyes, tiny pupils, brows shot up */
+.mascot-wrapper.is-surprised .sclera {
+	transform: scaleY(1.2) scaleX(1.1); /* Stretch vertically */
+	transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.5); /* Snap open */
+}
+
+.mascot-wrapper.is-surprised .pupil {
+	r: 0.8; /* Tiny pupils (shock) */
+	transition: r 0.1s ease;
+}
+
+.mascot-wrapper.is-surprised .eyebrow {
+	transform: translateY(-8px) scaleX(1.2); /* Shot way up high */
+	transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.5);
+}
+
+.mascot-wrapper.is-surprised .obsidian-mascot {
+	/* A slight jump up */
+	transform: translateY(-10px) scale(1.1);
+	transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.5);
+}
+
+/* POKED: Squash effect */
+.mascot-wrapper.is-poked .obsidian-mascot {
+	transform: scale(0.9, 0.8);
+	transition: transform 0.1s;
+}
+
+/* EXCITED: Vibrating, huge pupils, wide eyes */
+.mascot-wrapper.is-excited .sclera {
+	transform: scaleY(1.1) scaleX(1.05);
+}
+.mascot-wrapper.is-excited .pupil {
+	r: 2.2; /* Huge pupils */
+}
+.mascot-wrapper.is-excited .eyebrow {
+	transform: translateY(-5px); /* Very high brows */
+}
+.mascot-wrapper.is-excited .obsidian-mascot {
+	animation: shake 0.2s ease-in-out infinite; /* Fast vibration */
+}
+.mascot-wrapper.is-excited {
+	animation: floating-happy 1s ease-in-out infinite; /* Very fast float */
+}
+
+/* BORED: Droopy eyes, flat brows, slow float */
+.mascot-wrapper.is-bored .sclera {
+	transform: scaleY(0.4); /* Half closed */
+}
+.mascot-wrapper.is-bored .pupil {
+	r: 1.4; /* Normal/Smallish */
+	transform: translateY(1px);
+}
+.mascot-wrapper.is-bored .eyebrow {
+	transform: translateY(0px) rotate(0deg); /* Flat */
+}
+.mascot-wrapper.is-bored .pupil-group {
+	transform: translate(calc(var(--look-x) * 1px), 2px); /* Lazy looking */
+}
+.mascot-wrapper.is-bored {
+	animation: floating-sleep 10s ease-in-out infinite; /* Very slow float */
+}
+
+/* LOVE: Pink glow, dilated pupils, soft float */
+.mascot-wrapper.is-love .obsidian-mascot {
+	filter: drop-shadow(0 0 20px rgba(255, 105, 180, 0.6)); /* Pink glow */
+}
+.mascot-wrapper.is-love .pupil {
+	r: 2.5; /* Huge pupils */
+	fill: #ff69b4; /* Pink pupils */
+}
+.mascot-wrapper.is-love .eyebrow {
+	transform: translateY(-4px); /* High brows */
+	stroke: #ff69b4; /* Pink brows */
+}
+.mascot-wrapper.is-love {
+	animation: floating-happy 4s ease-in-out infinite;
+}
+
+/* SCARED: Shaking, tiny pupils, pale */
+.mascot-wrapper.is-scared .sclera {
+	transform: scale(1.1); /* Wide open eyes */
+}
+.mascot-wrapper.is-scared .pupil {
+	r: 0.5; /* Tiny pupils */
+}
+.mascot-wrapper.is-scared .eyebrow {
+	transform: translateY(-6px) rotate(10deg); /* High and worried */
+}
+.mascot-wrapper.is-scared .obsidian-mascot {
+	animation: shake 0.1s ease-in-out infinite; /* Fast shake */
+	filter: grayscale(0.5) brightness(1.2); /* Pale */
+}
+
+/* Breathing Variations */
+.mascot-wrapper.is-happy .facet {
+	animation-duration: 2.5s;
+}
+.mascot-wrapper.is-angry .facet {
+	animation-duration: 0.3s;
+}
+.mascot-wrapper.is-sleeping .facet {
+	animation-duration: 8s;
+}
+.mascot-wrapper.is-sad .facet {
+	animation-duration: 6s;
+}
+
+/* --- ANIMATIONS --- */
+@keyframes floating {
+	0%,
+	100% {
+		transform: translateY(0) rotate(0deg) scale(1, 1);
+	}
+	50% {
+		transform: translateY(-15px) rotate(2deg) scale(1.02, 0.98);
+	}
+}
+
+@keyframes floating-happy {
+	0%,
+	100% {
+		transform: translateY(0) rotate(0deg) scale(1, 1);
+	}
+	50% {
+		transform: translateY(-20px) rotate(3deg) scale(1.05, 0.95);
+	}
+}
+
+@keyframes floating-sad {
+	0%,
+	100% {
+		transform: translateY(10px) rotate(0deg) scale(1.05, 0.95);
+	}
+	50% {
+		transform: translateY(15px) rotate(-1deg) scale(1.02, 0.98);
+	}
+}
+
+@keyframes floating-sleep {
+	0%,
+	100% {
+		transform: translateY(5px) rotate(0deg) scale(1.1, 0.9);
+	}
+	50% {
+		transform: translateY(8px) rotate(0.5deg) scale(1.08, 0.92);
+	}
+}
+
+@keyframes shake {
+	10%,
+	90% {
+		transform: translate3d(-2px, 0, 0) rotate(-1deg);
+	}
+	20%,
+	80% {
+		transform: translate3d(4px, 0, 0) rotate(2deg);
+	}
+	30%,
+	50%,
+	70% {
+		transform: translate3d(-6px, 0, 0) rotate(-3deg);
+	}
+	40%,
+	60% {
+		transform: translate3d(6px, 0, 0) rotate(3deg);
+	}
+}
